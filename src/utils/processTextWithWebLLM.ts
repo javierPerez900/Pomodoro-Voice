@@ -3,7 +3,6 @@ import { CreateMLCEngine, MLCEngine, InitProgressReport, ChatCompletionMessagePa
 export async function loadModel(onProgress: (progress: string) => void, onProgressEnd: (ProgressEnd: boolean) => void) {
   const initProgressCallback = (initProgress: InitProgressReport ) => {
     onProgress(initProgress.text)
-    console.log(initProgress);
     if(initProgress.progress == 1){
       onProgressEnd(true);
     }
@@ -12,8 +11,7 @@ export async function loadModel(onProgress: (progress: string) => void, onProgre
   const selectedModel = "Llama-3.2-1B-Instruct-q4f32_1-MLC"; // Modelo de WebLLM a utilizar
   // Inicializar el modelo de WebLLM
   const engine = await CreateMLCEngine(selectedModel, { initProgressCallback: initProgressCallback });
-  console.log(typeof engine);
-  console.log(engine);
+
   return engine;
 }
 
