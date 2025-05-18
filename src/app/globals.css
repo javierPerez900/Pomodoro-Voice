@@ -21,15 +21,8 @@
 
 body {
   background: var(--background);
+  background: linear-gradient(135deg, #60a5fa 0%, #a7f3d0 100%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.pomodoro-timer {
-  max-width: 400px;
-  margin: 0 auto;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}

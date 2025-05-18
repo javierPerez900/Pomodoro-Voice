@@ -49,7 +49,7 @@ NO agregues ninguna explicación ni texto extra. Solo responde el JSON.`,
     temperature: 0.7,
   });
   const replyText = fullReply.choices[0].message.content;
-  console.log("Esta es la respuesta", replyText);
+
   
   if (!replyText) {
     throw new Error("La IA no devolvió una respuesta válida.");
@@ -57,6 +57,5 @@ NO agregues ninguna explicación ni texto extra. Solo responde el JSON.`,
   const cleanedReply = replyText.replace(/^[^{]*|[^}]*$/g, "").trim();
 
   const config = JSON.parse(cleanedReply);
-  console.log(config);
   return config;
 }

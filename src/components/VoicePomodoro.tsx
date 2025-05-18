@@ -9,7 +9,7 @@ const workEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-c
 const breakEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-race-countdown-1953.wav") : null;
 
 export default function VoicePomodoro() {
-  const [status, setStatus] = useState<string>("Esperando...");
+  const [status, setStatus] = useState<string>("");
   const [progress, setProgress] = useState<string>(""); // Estado para el progreso
   const [progressEnd, setProgressEnd] = useState<boolean>(false);
   const [config, setConfig] = useState<{ focusTime: number; breakTime: number } | null>(null);
@@ -22,9 +22,12 @@ export default function VoicePomodoro() {
   const [isIAUsed, setisIAUsed] = useState<boolean>(false);
 
   useEffect(() => {
-    if(isIAUsed){
+    setConfig(null)
+    if(isIAUsed && !model){
+      setStatus("Cargando...");
       const initializeModel = async () => {
       const loadedModel = await loadModel(setProgress, setProgressEnd);
+      setStatus("");
       setModel(loadedModel);
       };
       initializeModel();
@@ -102,6 +105,7 @@ export default function VoicePomodoro() {
   };
 
   const setManualConfig = () => {
+    stopPomodoro();
     const manualConfig = {
       focusTime: manualFocusTime,
       breakTime: manualBreakTime,
@@ -117,83 +121,97 @@ export default function VoicePomodoro() {
   };
 
   return (
-    <div className="voice-pomodoro">
-      <h1 className="text-2xl font-bold">Configura tu Pomodoro {!isIAUsed? "":"con tu voz"}</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-cyan-200 to-blue-100">
+      <div className="pomodoro-timer w-full max-w-md bg-white/80 rounded-2xl shadow-2xl p-8 border border-blue-200">
+        <h1 className="text-3xl font-bold text-blue-700 text-center mb-6 drop-shadow">Configura tu Pomodoro {!isIAUsed? "":"con tu voz"}</h1>
 
-      {!isIAUsed && !config && (
-        <div className="manual-config">
-          <label className="block mt-4">
-            Tiempo de trabajo (minutos):
-            <input
-              type="number"
-              value={manualFocusTime}
-              onChange={(e) => setManualFocusTime(Number(e.target.value))}
-              className="border rounded p-2 mt-2"
-              min="1"
-            />
-          </label>
-          <label className="block mt-4">
-            Tiempo de descanso (minutos):
-            <input
-              type="number"
-              value={manualBreakTime}
-              onChange={(e) => setManualBreakTime(Number(e.target.value))}
-              className="border rounded p-2 mt-2"
-              min="1"
-            />
-          </label>
-          <div className="mt-4">
+        {!isIAUsed && (
+          <div className="manual-config">
+            <label className="block mt-4 text-blue-800 font-semibold">
+              Tiempo de trabajo (minutos):
+              <input
+                type="number"
+                value={manualFocusTime}
+                onChange={(e) => setManualFocusTime(Number(e.target.value))}
+                className="border border-blue-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
+                min="1"
+              />
+            </label>
+            <label className="block mt-4 text-blue-800 font-semibold">
+              Tiempo de descanso (minutos):
+              <input
+                type="number"
+                value={manualBreakTime}
+                onChange={(e) => setManualBreakTime(Number(e.target.value))}
+                className="border border-blue-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
+                min="1"
+              />
+            </label>
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={setManualConfig}
+                className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold p-2 rounded w-1/2 shadow"
+              >
+                Aplicar configuración manual
+              </button>
+              <button
+                onClick={() => {setisIAUsed(true);}}
+                className="bg-white border border-blue-400 text-blue-700 font-bold p-2 rounded w-1/2 hover:bg-blue-50 shadow"
+              >
+                Usar IA para configurar
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {isIAUsed && progressEnd && (
+          <div className="mt-6 flex flex-col gap-2 items-center">
             <button
-              onClick={setManualConfig}
-              className="bg-green-500 text-white p-2 rounded mr-2"
+              onClick={handleVoiceCommand}
+              className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold p-2 rounded w-full shadow"
             >
-              Aplicar configuración manual
+              Hablar
             </button>
             <button
               onClick={() => {
-                setisIAUsed(true);
-              }}
-              className="bg-blue-500 text-white p-2 rounded"
+                      setisIAUsed(false);
+                    }}
+              className="bg-white border border-blue-400 text-blue-700 font-bold p-2 rounded w-full hover:bg-blue-50 shadow"
             >
-              Usar IA para configurar
+              Regresar a configuración manual
             </button>
           </div>
-        </div>
-      )}
-      
-      {isIAUsed && progressEnd && <button
-        onClick={handleVoiceCommand}
-        className="bg-blue-500 text-white p-2 rounded mt-4"
-      >
-        Hablar
-      </button>}
-      <p className="mt-4">{status}</p>
-      {isIAUsed && !progressEnd && progress && <p className="mt-2 text-sm text-gray-500">Progreso: {progress}</p>} {/* Mostrar progreso */}
-      {config && (
-        <div className="mt-4">
-          <p>Tiempo de trabajo: {config.focusTime} minutos</p>
-          <p>Tiempo de descanso: {config.breakTime} minutos</p>
-          <p>Tiempo restante: {formatTime(timeLeft)}</p>
+        )}
 
-          <div className="mt-4">
-            {!isRunning ? (
-              <button
-                onClick={startPomodoro}
-                className="bg-green-500 text-white p-2 rounded"
-              >
-                Iniciar
-              </button>
-            ) : (
-              <button
-                onClick={stopPomodoro}
-                className="bg-red-500 text-white p-2 rounded"
-              >
-                Detener
-              </button>
-            )}
+        <p className="mt-6 text-center text-blue-700 font-medium min-h-[2rem]">{status}</p>
+        {isIAUsed && !progressEnd && progress && <p className="mt-2 text-sm text-cyan-700 text-center">Progreso: {progress}</p>}
+
+        {config && (
+          <div className="mt-8 bg-blue-50 rounded-xl p-6 shadow-inner flex flex-col items-center">
+            <p className="text-lg text-blue-800 font-semibold mb-2">Tiempo de trabajo: {config.focusTime} minutos</p>
+            <p className="text-lg text-blue-800 font-semibold mb-2">Tiempo de descanso: {config.breakTime} minutos</p>
+            <p className="text-5xl font-mono text-blue-600 my-4 drop-shadow">Tiempo restante: {formatTime(timeLeft)}</p>
+
+            <div className="mt-4 flex gap-2">
+              {!isRunning ? (
+                <button
+                  onClick={startPomodoro}
+                  className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold p-2 rounded w-32 shadow"
+                >
+                  Iniciar
+                </button>
+              ) : (
+                <button
+                  onClick={stopPomodoro}
+                  className="bg-red-500 hover:bg-red-600 text-white font-bold p-2 rounded w-32 shadow"
+                >
+                  Detener
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
