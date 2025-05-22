@@ -1,65 +1,56 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { voiceCapture } from "../utils/voiceCapture";
 import { processTextWithWebLLM, loadModel } from "../utils/processTextWithWebLLM";
 import { configurePomodoro } from "../utils/pomodoroConfig";
 import { POMODORO_STATUS } from "../constants/pomodoroStatus";
-import { MLCEngine} from "@mlc-ai/web-llm";
 import { ManualConfig } from "./ManualConfig";
 import { IAConfig } from "./IAConfig";
 import { PomodoroPanel } from "./PomodoroPanel";
+import { usePomodoro } from "../hooks/usePomodoro";
 
 const workEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-completion-of-a-level-2063.wav") : null;
 const breakEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-race-countdown-1953.wav") : null;
 
 export default function VoicePomodoro() {
-  const [status, setStatus] = useState<string>("");
-  const [progress, setProgress] = useState<string>(""); // Estado para el progreso
-  const [progressEnd, setProgressEnd] = useState<boolean>(false);
-  const [config, setConfig] = useState<{ focusTime: number; breakTime: number } | null>(null);
-  const [model, setModel] = useState<MLCEngine | null>(null);
-  const [textoCapturated, setTextoCapturated] = useState<string>("");
-  const [timeLeft, setTimeLeft] = useState<number>(0); // Tiempo restante en segundos
-  const [isRunning, setIsRunning] = useState<boolean>(false); // Si el temporizador está corriendo
-  const [isFocusTime, setIsFocusTime] = useState<boolean>(true); // Si es tiempo de trabajo
-  const [manualFocusTime, setManualFocusTime] = useState<number>(25); // Tiempo de trabajo manual
-  const [manualBreakTime, setManualBreakTime] = useState<number>(5); // Tiempo de descanso manual
-  const [isIAUsed, setisIAUsed] = useState<boolean>(false);
+  const pomodoro = usePomodoro();
 
   useEffect(() => {
-    setConfig(null);
-    setTextoCapturated("");
-    if(isIAUsed && !model){
-      setStatus(POMODORO_STATUS.CARGANDO_IA);
+    pomodoro.setConfig(null);
+    pomodoro.setTextoCapturated("");
+    // setConfig(null);
+    // setTextoCapturated("");
+    if(pomodoro.isIAUsed && !pomodoro.model){
+      pomodoro.setStatus(POMODORO_STATUS.CARGANDO_IA);
       const initializeModel = async () => {
-      const loadedModel = await loadModel(setProgress, setProgressEnd);
-      setStatus(POMODORO_STATUS.INICIAL);
-      setModel(loadedModel);
+      const loadedModel = await loadModel(pomodoro.setProgress, pomodoro.setProgressEnd);
+      pomodoro.setStatus(POMODORO_STATUS.INICIAL);
+      pomodoro.setModel(loadedModel);
       };
       initializeModel();
     } else {
-      setStatus(POMODORO_STATUS.INICIAL);
+      pomodoro.setStatus(POMODORO_STATUS.INICIAL);
     }
-  },[isIAUsed]);
+  },[pomodoro.isIAUsed]);
 
   useEffect(() => {
-    if (!isRunning || !config) return;
+    if (!pomodoro.isRunning || !pomodoro.config) return;
 
     const timer = setInterval(() => {
-      setTimeLeft((prevTime) => {
+      pomodoro.setTimeLeft((prevTime) => {
         if (prevTime <= 1) {
           clearInterval(timer);
 
-          if (isFocusTime) {
+          if (pomodoro.isFocusTime) {
             workEndSound?.play();
-            setStatus(POMODORO_STATUS.DESCANSO);
-            setIsFocusTime(false);
-            return (config.breakTime || 0) * 60;
+            pomodoro.setStatus(POMODORO_STATUS.DESCANSO);
+            pomodoro.setIsFocusTime(false);
+            return (pomodoro.config?.breakTime || 0) * 60;
           } else {
             breakEndSound?.play();
-            setStatus(POMODORO_STATUS.TRABAJO);
-            setIsFocusTime(true);
-            return (config.focusTime || 0) * 60;
+            pomodoro.setStatus(POMODORO_STATUS.TRABAJO);
+            pomodoro.setIsFocusTime(true);
+            return (pomodoro.config?.focusTime || 0) * 60;
           }
         }
 
@@ -68,58 +59,58 @@ export default function VoicePomodoro() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isRunning, config, isFocusTime]);
+  }, [pomodoro.isRunning, pomodoro.config, pomodoro.isFocusTime]);
 
   const handleVoiceCommand = async () => {
     try {
-      setStatus(POMODORO_STATUS.ESCUCHANDO);
+      pomodoro.setStatus(POMODORO_STATUS.ESCUCHANDO);
       const voiceText = await voiceCapture();
-      setTextoCapturated(voiceText);
+      pomodoro.setTextoCapturated(voiceText);
 
-      setStatus(POMODORO_STATUS.PROCESANDO_IA);
+      pomodoro.setStatus(POMODORO_STATUS.PROCESANDO_IA);
 
-      if (!model) {
-        setStatus(POMODORO_STATUS.MODELO_NO_LISTO);
+      if (!pomodoro.model) {
+        pomodoro.setStatus(POMODORO_STATUS.MODELO_NO_LISTO);
         return;
       }
-      const webLLMResponse = await processTextWithWebLLM(voiceText, model);
+      const webLLMResponse = await processTextWithWebLLM(voiceText, pomodoro.model);
 
-      setStatus(POMODORO_STATUS.CONFIGURANDO);
+      pomodoro.setStatus(POMODORO_STATUS.CONFIGURANDO);
       const pomodoroConfig = configurePomodoro(webLLMResponse);
-      setConfig(pomodoroConfig);
+      pomodoro.setConfig(pomodoroConfig);
 
-      setStatus(POMODORO_STATUS.CONFIGURADO);
+      pomodoro.setStatus(POMODORO_STATUS.CONFIGURADO);
     } catch (error) {
       if (error instanceof Error) {
-        setStatus(POMODORO_STATUS.ERROR(error.message));
+        pomodoro.setStatus(POMODORO_STATUS.ERROR(error.message));
       } else {
-        setStatus(POMODORO_STATUS.ERROR_DESCONOCIDO);
+        pomodoro.setStatus(POMODORO_STATUS.ERROR_DESCONOCIDO);
       }
     }
   };
 
   const startPomodoro = () => {
-    if (config) {
-      setTimeLeft(config.focusTime * 60); // Configurar el tiempo de trabajo inicial
-      setIsRunning(true);
-      setIsFocusTime(true);
-      setStatus(POMODORO_STATUS.INICIADO);
+    if (pomodoro.config) {
+      pomodoro.setTimeLeft(pomodoro.config.focusTime * 60); // Configurar el tiempo de trabajo inicial
+      pomodoro.setIsRunning(true);
+      pomodoro.setIsFocusTime(true);
+      pomodoro.setStatus(POMODORO_STATUS.INICIADO);
     }
   };
 
   const stopPomodoro = () => {
-    setIsRunning(false);
-    setStatus(POMODORO_STATUS.DETENIDO);
+    pomodoro.setIsRunning(false);
+    pomodoro.setStatus(POMODORO_STATUS.DETENIDO);
   };
 
   const setManualConfig = () => {
     stopPomodoro();
     const manualConfig = {
-      focusTime: manualFocusTime,
-      breakTime: manualBreakTime,
+      focusTime: pomodoro.manualFocusTime,
+      breakTime: pomodoro.manualBreakTime,
     };
-    setConfig(manualConfig);
-    setStatus(POMODORO_STATUS.MANUAL_APLICADA);
+    pomodoro.setConfig(manualConfig);
+    pomodoro.setStatus(POMODORO_STATUS.MANUAL_APLICADA);
   };
 
   const formatTime = (seconds: number) => {
@@ -131,36 +122,36 @@ export default function VoicePomodoro() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-cyan-200 to-blue-100">
       <div className="pomodoro-timer w-full max-w-md bg-white/80 rounded-2xl shadow-2xl p-8 border border-blue-200">
-        <h1 className="text-3xl font-bold text-blue-700 text-center mb-6 drop-shadow">Configura tu Pomodoro {!isIAUsed? "":"con tu voz"}</h1>
+        <h1 className="text-3xl font-bold text-blue-700 text-center mb-6 drop-shadow">Configura tu Pomodoro {!pomodoro.isIAUsed? "":"con tu voz"}</h1>
 
-        {!isIAUsed && (
+        {!pomodoro.isIAUsed && (
           <ManualConfig
-            manualFocusTime={manualFocusTime}
-            setManualFocusTime={setManualFocusTime}
-            manualBreakTime={manualBreakTime}
-            setManualBreakTime={setManualBreakTime}
+            manualFocusTime={pomodoro.manualFocusTime}
+            setManualFocusTime={pomodoro.setManualFocusTime}
+            manualBreakTime={pomodoro.manualBreakTime}
+            setManualBreakTime={pomodoro.setManualBreakTime}
             setManualConfig={setManualConfig}
-            setisIAUsed={setisIAUsed}
+            setisIAUsed={pomodoro.setisIAUsed}
           />
         )}
         
-        {isIAUsed && progressEnd && (
+        {pomodoro.isIAUsed && pomodoro.progressEnd && (
           <IAConfig
             handleVoiceCommand={handleVoiceCommand}
-            setisIAUsed={setisIAUsed}
+            setisIAUsed={pomodoro.setisIAUsed}
           />
         )}
 
-        {textoCapturated && !config && <p className="mt-6 text-center text-black-700 font-medium min-h-[2rem]">texto capturado: {textoCapturated}</p>}
+        {pomodoro.textoCapturated && !pomodoro.config && <p className="mt-6 text-center text-black-700 font-medium min-h-[2rem]">texto capturado: {pomodoro.textoCapturated}</p>}
 
-        <p className="mt-6 text-center text-blue-700 font-medium min-h-[2rem]">{status}</p>
-        {isIAUsed && !progressEnd && progress && <p className="mt-2 text-sm text-cyan-700 text-center">Progreso: {progress}</p>}
+        <p className="mt-6 text-center text-blue-700 font-medium min-h-[2rem]">{pomodoro.status}</p>
+        {pomodoro.isIAUsed && !pomodoro.progressEnd && pomodoro.progress && <p className="mt-2 text-sm text-cyan-700 text-center">Progreso: {pomodoro.progress}</p>}
 
-        {config && (
+        {pomodoro.config && (
           <PomodoroPanel
-            config={config}
-            timeLeft={timeLeft}
-            isRunning={isRunning}
+            config={pomodoro.config}
+            timeLeft={pomodoro.timeLeft}
+            isRunning={pomodoro.isRunning}
             startPomodoro={startPomodoro}
             stopPomodoro={stopPomodoro}
             formatTime={formatTime}
