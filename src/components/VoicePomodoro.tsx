@@ -5,6 +5,9 @@ import { processTextWithWebLLM, loadModel } from "../utils/processTextWithWebLLM
 import { configurePomodoro } from "../utils/pomodoroConfig";
 import { POMODORO_STATUS } from "../constants/pomodoroStatus";
 import { MLCEngine} from "@mlc-ai/web-llm";
+import { ManualConfig } from "./ManualConfig";
+import { IAConfig } from "./IAConfig";
+import { PomodoroPanel } from "./PomodoroPanel";
 
 const workEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-completion-of-a-level-2063.wav") : null;
 const breakEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-race-countdown-1953.wav") : null;
@@ -24,7 +27,8 @@ export default function VoicePomodoro() {
   const [isIAUsed, setisIAUsed] = useState<boolean>(false);
 
   useEffect(() => {
-    setConfig(null)
+    setConfig(null);
+    setTextoCapturated("");
     if(isIAUsed && !model){
       setStatus(POMODORO_STATUS.CARGANDO_IA);
       const initializeModel = async () => {
@@ -130,61 +134,21 @@ export default function VoicePomodoro() {
         <h1 className="text-3xl font-bold text-blue-700 text-center mb-6 drop-shadow">Configura tu Pomodoro {!isIAUsed? "":"con tu voz"}</h1>
 
         {!isIAUsed && (
-          <div className="manual-config">
-            <label className="block mt-4 text-blue-800 font-semibold">
-              Tiempo de trabajo (minutos):
-              <input
-                type="number"
-                value={manualFocusTime}
-                onChange={(e) => setManualFocusTime(Number(e.target.value))}
-                className="border border-blue-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
-                min="1"
-              />
-            </label>
-            <label className="block mt-4 text-blue-800 font-semibold">
-              Tiempo de descanso (minutos):
-              <input
-                type="number"
-                value={manualBreakTime}
-                onChange={(e) => setManualBreakTime(Number(e.target.value))}
-                className="border border-blue-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
-                min="1"
-              />
-            </label>
-            <div className="mt-6 flex gap-2">
-              <button
-                onClick={setManualConfig}
-                className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold p-2 rounded w-1/2 shadow"
-              >
-                Aplicar configuración manual
-              </button>
-              <button
-                onClick={() => {setisIAUsed(true);}}
-                className="bg-white border border-blue-400 text-blue-700 font-bold p-2 rounded w-1/2 hover:bg-blue-50 shadow"
-              >
-                Usar IA para configurar
-              </button>
-            </div>
-          </div>
+          <ManualConfig
+            manualFocusTime={manualFocusTime}
+            setManualFocusTime={setManualFocusTime}
+            manualBreakTime={manualBreakTime}
+            setManualBreakTime={setManualBreakTime}
+            setManualConfig={setManualConfig}
+            setisIAUsed={setisIAUsed}
+          />
         )}
         
         {isIAUsed && progressEnd && (
-          <div className="mt-6 flex flex-col gap-2 items-center">
-            <button
-              onClick={handleVoiceCommand}
-              className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold p-2 rounded w-full shadow"
-            >
-              Hablar
-            </button>
-            <button
-              onClick={() => {
-                      setisIAUsed(false);
-                    }}
-              className="bg-white border border-blue-400 text-blue-700 font-bold p-2 rounded w-full hover:bg-blue-50 shadow"
-            >
-              Regresar a configuración manual
-            </button>
-          </div>
+          <IAConfig
+            handleVoiceCommand={handleVoiceCommand}
+            setisIAUsed={setisIAUsed}
+          />
         )}
 
         {textoCapturated && !config && <p className="mt-6 text-center text-black-700 font-medium min-h-[2rem]">texto capturado: {textoCapturated}</p>}
@@ -193,29 +157,14 @@ export default function VoicePomodoro() {
         {isIAUsed && !progressEnd && progress && <p className="mt-2 text-sm text-cyan-700 text-center">Progreso: {progress}</p>}
 
         {config && (
-          <div className="mt-8 bg-blue-50 rounded-xl p-6 shadow-inner flex flex-col items-center">
-            <p className="text-lg text-blue-800 font-semibold mb-2">Tiempo de trabajo: {config.focusTime} minutos</p>
-            <p className="text-lg text-blue-800 font-semibold mb-2">Tiempo de descanso: {config.breakTime} minutos</p>
-            <p className="text-5xl font-mono text-blue-600 my-4 drop-shadow">Tiempo restante: {formatTime(timeLeft)}</p>
-
-            <div className="mt-4 flex gap-2">
-              {!isRunning ? (
-                <button
-                  onClick={startPomodoro}
-                  className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-bold p-2 rounded w-32 shadow"
-                >
-                  Iniciar
-                </button>
-              ) : (
-                <button
-                  onClick={stopPomodoro}
-                  className="bg-red-500 hover:bg-red-600 text-white font-bold p-2 rounded w-32 shadow"
-                >
-                  Detener
-                </button>
-              )}
-            </div>
-          </div>
+          <PomodoroPanel
+            config={config}
+            timeLeft={timeLeft}
+            isRunning={isRunning}
+            startPomodoro={startPomodoro}
+            stopPomodoro={stopPomodoro}
+            formatTime={formatTime}
+          />
         )}
       </div>
     </div>
