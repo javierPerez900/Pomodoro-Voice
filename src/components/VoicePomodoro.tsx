@@ -8,6 +8,7 @@ import { ManualConfig } from "./ManualConfig";
 import { IAConfig } from "./IAConfig";
 import { PomodoroPanel } from "./PomodoroPanel";
 import { usePomodoro } from "../hooks/usePomodoro";
+import { StatusPanel } from "./StatusPanel";
 
 const workEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-completion-of-a-level-2063.wav") : null;
 const breakEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-race-countdown-1953.wav") : null;
@@ -16,8 +17,9 @@ export default function VoicePomodoro() {
   const pomodoro = usePomodoro();
 
   useEffect(() => {
+    stopPomodoro();
     pomodoro.setConfig(null);
-    pomodoro.setTextoCapturated("");
+    pomodoro.setTextCapturated("");
     // setConfig(null);
     // setTextoCapturated("");
     if(pomodoro.isIAUsed && !pomodoro.model){
@@ -65,7 +67,7 @@ export default function VoicePomodoro() {
     try {
       pomodoro.setStatus(POMODORO_STATUS.ESCUCHANDO);
       const voiceText = await voiceCapture();
-      pomodoro.setTextoCapturated(voiceText);
+      pomodoro.setTextCapturated(voiceText);
 
       pomodoro.setStatus(POMODORO_STATUS.PROCESANDO_IA);
 
@@ -79,6 +81,8 @@ export default function VoicePomodoro() {
       const pomodoroConfig = configurePomodoro(webLLMResponse);
       pomodoro.setConfig(pomodoroConfig);
 
+      pomodoro.setTimeLeft(pomodoroConfig.focusTime * 60);
+
       pomodoro.setStatus(POMODORO_STATUS.CONFIGURADO);
     } catch (error) {
       if (error instanceof Error) {
@@ -91,9 +95,11 @@ export default function VoicePomodoro() {
 
   const startPomodoro = () => {
     if (pomodoro.config) {
-      pomodoro.setTimeLeft(pomodoro.config.focusTime * 60); // Configurar el tiempo de trabajo inicial
+      if (pomodoro.timeLeft === 0) {
+        pomodoro.setTimeLeft(pomodoro.config.focusTime * 60);
+        pomodoro.setIsFocusTime(true);
+      }
       pomodoro.setIsRunning(true);
-      pomodoro.setIsFocusTime(true);
       pomodoro.setStatus(POMODORO_STATUS.INICIADO);
     }
   };
@@ -110,6 +116,7 @@ export default function VoicePomodoro() {
       breakTime: pomodoro.manualBreakTime,
     };
     pomodoro.setConfig(manualConfig);
+    pomodoro.setTimeLeft(manualConfig.focusTime * 60);
     pomodoro.setStatus(POMODORO_STATUS.MANUAL_APLICADA);
   };
 
@@ -142,10 +149,14 @@ export default function VoicePomodoro() {
           />
         )}
 
-        {pomodoro.textoCapturated && !pomodoro.config && <p className="mt-6 text-center text-black-700 font-medium min-h-[2rem]">texto capturado: {pomodoro.textoCapturated}</p>}
-
-        <p className="mt-6 text-center text-blue-700 font-medium min-h-[2rem]">{pomodoro.status}</p>
-        {pomodoro.isIAUsed && !pomodoro.progressEnd && pomodoro.progress && <p className="mt-2 text-sm text-cyan-700 text-center">Progreso: {pomodoro.progress}</p>}
+        <StatusPanel
+          textoCapturated={pomodoro.textCapturated}
+          config={pomodoro.config}
+          status={pomodoro.status}
+          isIAUsed={pomodoro.isIAUsed}
+          progressEnd={pomodoro.progressEnd}
+          progress={pomodoro.progress}
+        />
 
         {pomodoro.config && (
           <PomodoroPanel
