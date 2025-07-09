@@ -9,10 +9,11 @@ export const POMODORO_STATUS = Object.freeze({
   CONFIGURANDO: "Configurando Pomodoro...",
   CONFIGURADO: "¡Pomodoro configurado! Presiona iniciar para comenzar.",
   MANUAL_APLICADA: "¡Configuración manual aplicada! Presiona iniciar para comenzar.",
-  INICIADO: "¡Pomodoro iniciado! Tiempo de trabajo.",
+  INICIADO: "¡Pomodoro iniciado!",
   DETENIDO: "Pomodoro detenido.",
   DESCANSO: "¡Tiempo de descanso!",
   TRABAJO: "¡Tiempo de trabajo!",
+  DESCANSO_LARGO: "¡Ciclo Pomodoro completo! Tómate un buen descanso.",
   ERROR: (msg: string) => `Error: ${msg}`,
   ERROR_DESCONOCIDO: "Error desconocido",
 });

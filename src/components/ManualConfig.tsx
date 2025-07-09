@@ -5,37 +5,62 @@ interface ManualConfigProps {
   setManualFocusTime: (n: number) => void;
   manualBreakTime: number;
   setManualBreakTime: (n: number) => void;
+  manualMaxCycles: number;
+  setManualMaxCycles: (n: number) => void;
+  manualLongBreakTime: number;
+  setManualLongBreakTime: (n: number) => void;
   setManualConfig: () => void;
   setisIAUsed: (b: boolean) => void;
+  
 }
 
 export function ManualConfig({
-  manualFocusTime,
-  setManualFocusTime,
-  manualBreakTime,
-  setManualBreakTime,
+  manualFocusTime, setManualFocusTime,
+  manualBreakTime, setManualBreakTime,
+  manualMaxCycles, setManualMaxCycles,
+  manualLongBreakTime, setManualLongBreakTime,
   setManualConfig,
   setisIAUsed,
 }: ManualConfigProps) {
   return (
     <div className="manual-config">
-      <label className="block mt-4 text-blue-800 font-semibold">
-        Tiempo de trabajo (minutos):
+      <label className="block mt-4 text-sky-700 font-semibold flex items-center gap-2">
+        <span>⏰</span> Tiempo de trabajo (minutos):
         <input
           type="number"
           value={manualFocusTime}
           onChange={e => setManualFocusTime(Number(e.target.value))}
-          className="border border-blue-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
+          className="border border-sky-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
           min="1"
         />
       </label>
-      <label className="block mt-4 text-blue-800 font-semibold">
-        Tiempo de descanso (minutos):
+      <label className="block mt-4 text-cyan-700 font-semibold flex items-center gap-2">
+        <span>☕</span> Tiempo de descanso (minutos):
         <input
           type="number"
           value={manualBreakTime}
           onChange={e => setManualBreakTime(Number(e.target.value))}
-          className="border border-blue-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
+          className="border border-cyan-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
+          min="1"
+        />
+      </label>
+      <label className="block mt-4 text-indigo-700 font-semibold flex items-center gap-2">
+        <span>🔁</span> Ciclos antes del descanso largo:
+        <input
+          type="number"
+          value={manualMaxCycles}
+          onChange={e => setManualMaxCycles(Number(e.target.value))}
+          className="border border-indigo-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
+          min="1"
+        />
+      </label>
+      <label className="block mt-4 text-purple-700 font-semibold flex items-center gap-2">
+        <span>🛌</span> Descanso largo (minutos):
+        <input
+          type="number"
+          value={manualLongBreakTime}
+          onChange={e => setManualLongBreakTime(Number(e.target.value))}
+          className="border border-purple-300 rounded p-2 mt-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50"
           min="1"
         />
       </label>
