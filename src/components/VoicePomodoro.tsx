@@ -160,11 +160,13 @@ export default function VoicePomodoro() {
         return;
       }
       const webLLMResponse = await processTextWithWebLLM(voiceText, pomodoro.model);
-      const { explanation: explanationResponse, config: configResponse } = webLLMResponse;
+      const { 
+        // explanation: explanationResponse,
+         config: configResponse } = webLLMResponse;
 
       pomodoro.setStatus(POMODORO_STATUS.CONFIGURANDO);
 
-      pomodoro.setExplanation(explanationResponse);
+      // pomodoro.setExplanation(explanationResponse);
       const pomodoroConfig = configurePomodoro(configResponse);
 
       pomodoro.setConfig(pomodoroConfig);
