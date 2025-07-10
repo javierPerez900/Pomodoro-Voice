@@ -32,22 +32,26 @@ export async function processTextWithWebLLM(
   {
     role: "system",
     content:  `
-Eres un asistente que configura temporizadores Pomodoro.
-Cuando recibas una instrucción del usuario, debes analizarla y responder en español con un objeto JSON con los siguientes campos:
+Eres un asistente que configura temporizadores Pomodoro personalizados.
+
+Tu única tarea es analizar cada instrucción del usuario (aunque sea vaga) y responder SIEMPRE en español con un objeto JSON que contenga exactamente estos campos:
 
 - focusTime: minutos de trabajo.
 - breakTime: minutos de descanso corto.
 - maxCycles: cantidad de ciclos antes del descanso largo.
 - longBreakTime: minutos de descanso largo.
 
-Ejemplo de respuesta JSON:
+Debes interpretar la instrucción del usuario y adaptar los valores según lo que diga.  
+No proporciones explicaciones, comentarios ni texto adicional.  
+Responde únicamente con el JSON de salida.
+
+Ejemplo de respuesta:
 {
-  "focusTime": 25,
-  "breakTime": 5,
-  "maxCycles": 4,
-  "longBreakTime": 15
+  \"focusTime\": 25,
+  \"breakTime\": 5,
+  \"maxCycles\": 4,
+  \"longBreakTime\": 15
 }
-No des explicaicones solo responde el JSON.
 `,
   },
   {
@@ -68,6 +72,10 @@ No des explicaicones solo responde el JSON.
   }
   console.log("Respuesta de la IA:", replyText);
 
+  // Extrae solo el JSON de la respuesta
+  const jsonStart = replyText.indexOf("{");
+  const jsonEnd = replyText.lastIndexOf("}");
+
   // // Busca el primer '{' para separar explicación y JSON
   // const jsonStart = replyText.indexOf("{");
   // const jsonEnd = replyText.lastIndexOf("}");
@@ -79,9 +87,15 @@ No des explicaicones solo responde el JSON.
   // const explanation = replyText.slice(0, jsonStart).trim();
   // const jsonText = replyText.slice(jsonStart, jsonEnd + 1).trim();
 
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+    throw new Error("No se encontró un bloque JSON válido en la respuesta de la IA.");
+  }
+
+  const jsonText = replyText.slice(jsonStart, jsonEnd + 1).trim();
+
   // console.log("Explicación:", explanation);
-  console.log("JSON:", replyText);
-  const config = JSON.parse(replyText);
+  console.log("JSON:", jsonText);
+  const config = JSON.parse(jsonText);
   
   return { config };
 }
