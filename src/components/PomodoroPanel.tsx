@@ -7,25 +7,33 @@ interface PomodoroPanelProps {
     maxCycles: number; 
     longBreakTime: number;
   };
-  timeLeft: number;
+  minutes: number;
+  seconds: number;
+  // timeLeft: number;
   isRunning: boolean;
   isFocusTime: boolean;
   startPomodoro: () => void;
   stopPomodoro: () => void;
-  formatTime: (n: number) => string;
+  resetPomodoro: () => void;
   cycle: number;
 }
 
 export function PomodoroPanel({
   config,
-  timeLeft,
+  minutes,
+  seconds,
+  // timeLeft,
   isRunning,
   isFocusTime,
   startPomodoro,
   stopPomodoro,
-  formatTime,
+  resetPomodoro,
   cycle,
 }: PomodoroPanelProps) {
+
+  const formatTime = (minutes: number, seconds: number,) => {
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
 
   let estado = "";
   let estadoColor = "";
@@ -64,7 +72,8 @@ export function PomodoroPanel({
       <div className="flex justify-center items-center mt-6 mb-1">
         <div className="w-56 h-56 rounded-full bg-white shadow-lg flex items-center justify-center border-8 border-blue-300">
           <span className="text-6xl font-mono text-blue-600 drop-shadow">
-            {formatTime(timeLeft)}
+            {/*formatTime(timeLeft)*/}
+            {formatTime(minutes, seconds)}
           </span>
         </div>
       </div>
@@ -74,7 +83,7 @@ export function PomodoroPanel({
           {estado}
         </div>
       )}
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-col items-center gap-2">
         {!isRunning ? (
           <button
             onClick={startPomodoro}
@@ -90,6 +99,12 @@ export function PomodoroPanel({
             Detener
           </button>
         )}
+        <button
+            onClick={resetPomodoro}
+            className="bg-yellow-400 hover:bg-yellow-600 text-white font-semibold p-1 rounded w-24 shadow text-sm mt-2"
+        >
+          Reiniciar
+        </button>
       </div>
     </div>
   );

@@ -14,9 +14,8 @@ export function usePomodoro() {
   } | null>(null);
   const [model, setModel] = useState<MLCEngine | null>(null);
   const [textCapturated, setTextCapturated] = useState<string>("");
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isFocusTime, setIsFocusTime] = useState<boolean>(true);
+  const [nextPhase, setNextPhase] = useState<string>(""); // Indica si ha habido un cambio de fase
   const [manualFocusTime, setManualFocusTime] = useState<number>(25);
   const [manualBreakTime, setManualBreakTime] = useState<number>(5);
   const [manualMaxCycles, setManualMaxCycles] = useState<number>(4); // Número de ciclos antes del descanso largo
@@ -35,9 +34,8 @@ export function usePomodoro() {
     config, setConfig,
     model, setModel,
     textCapturated, setTextCapturated,
-    timeLeft, setTimeLeft,
-    isRunning, setIsRunning,
     isFocusTime, setIsFocusTime,
+    nextPhase, setNextPhase,
     manualFocusTime, setManualFocusTime,
     manualBreakTime, setManualBreakTime,
     manualMaxCycles, setManualMaxCycles,
