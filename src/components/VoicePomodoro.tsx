@@ -1,159 +1,187 @@
 "use client";
-import { useRef, useEffect } from "react";
-import { useTimer } from "react-timer-hook";
+import { useRef, useEffect, useCallback } from "react";
 import { voiceCapture } from "../utils/voiceCapture";
-import { processTextWithWebLLM, loadModel } from "../utils/processTextWithWebLLM";
+import {
+  processTextWithWebLLM,
+  loadModel,
+} from "../utils/processTextWithWebLLM";
 import { configurePomodoro } from "../utils/pomodoroConfig";
 import { POMODORO_STATUS } from "../constants/pomodoroStatus";
 import { ManualConfig } from "./ManualConfig";
 import { IAConfig } from "./IAConfig";
 import { PomodoroPanel } from "./PomodoroPanel";
-import { usePomodoro } from "../hooks/usePomodoro";
+import { usePomodoroState } from "../hooks/usePomodoroState";
 import { StatusPanel } from "./StatusPanel";
 
-const workEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-completion-of-a-level-2063.wav") : null;
-const breakEndSound = typeof window !== "undefined" ? new Audio("/sounds/mixkit-race-countdown-1953.wav") : null;
-const finishSound = typeof window !== "undefined" ? new Audio("/sounds/guitar-finish-86787.mp3") : null;
+const workEndSound =
+  typeof window !== "undefined"
+    ? new Audio("/sounds/mixkit-completion-of-a-level-2063.wav")
+    : null;
+const breakEndSound =
+  typeof window !== "undefined"
+    ? new Audio("/sounds/mixkit-race-countdown-1953.wav")
+    : null;
+const finishSound =
+  typeof window !== "undefined"
+    ? new Audio("/sounds/guitar-finish-86787.mp3")
+    : null;
 if (finishSound) finishSound.volume = 1.0; // Volumen máximo
 
-
 export default function VoicePomodoro() {
-  const pomodoro = usePomodoro();
-  const nextSeconds = useRef<number>(null);
-  // const expiryRef = useRef<Date | null>(null);
-  
-  // Calcula el tiempo inicial para el timer
-  const getInitialExpiry = () => {
-    const expiry = new Date();
+  const pomodoro = usePomodoroState();
+  const workerRef = useRef<Worker | null>(null);
+  const advancePhaseRef = useRef<(() => void) | null>(null);
 
-    if(pomodoro.config) {
-      if(nextSeconds.current !== null){
-        expiry.setSeconds(expiry.getSeconds() + nextSeconds.current);
-      };
+  // Funciones del web worker
+  const startTimer = (duration: number) => {
+    // duration en segundos
+    // Setear timeLeft inmediatamente para la UI
+    pomodoro.setTimeLeft(duration);
 
-    }
-
-    return expiry;
+    workerRef.current?.postMessage({
+      type: "START",
+      payload: { duration },
+    });
+    pomodoro.setIsRunning(true);
   };
 
-  const advancePhase = () => {
+  const pauseTimer = () => {
+    workerRef.current?.postMessage({ type: "PAUSE" });
+    pomodoro.setIsRunning(false);
+  };
+
+  const resumeTimer = () => {
+    workerRef.current?.postMessage({ type: "RESUME" });
+    pomodoro.setIsRunning(true);
+  };
+
+  const resetTimer = (duration: number) => {
+    // duration en segundos
+    workerRef.current?.postMessage({
+      type: "RESET",
+      payload: { duration },
+    });
+    // Actualizar UI al valor reiniciado (pausado)
+    pomodoro.setTimeLeft(duration);
+    pomodoro.setIsRunning(false);
+  };
+
+  const advancePhase = useCallback(() => {
     if (!pomodoro.config) return;
     const { focusTime, breakTime, longBreakTime, maxCycles } = pomodoro.config;
 
-    // let nextSeconds: number;
+    let nextSeconds: number;
+    let shouldContinue = true;
 
     if (pomodoro.isFocusTime) {
+      // Fin del tiempo de trabajo
       workEndSound?.play();
-      pomodoro.setStatus(POMODORO_STATUS.DESCANSO);
 
-      // nextSeconds = (pomodoro.cycle < maxCycles ? breakTime : longBreakTime) * 60;
-      nextSeconds.current = (pomodoro.cycle < maxCycles ? breakTime : longBreakTime) * 60;
+      // Verificar si es el último ciclo antes del descanso largo
+      if (pomodoro.cycle >= maxCycles) {
+        pomodoro.setStatus(POMODORO_STATUS.DESCANSO_LARGO);
+        nextSeconds = longBreakTime * 60;
+      } else {
+        pomodoro.setStatus(POMODORO_STATUS.DESCANSO);
+        nextSeconds = breakTime * 60;
+      }
+
       pomodoro.setIsFocusTime(false);
-      pomodoro.setNextPhase("break time"); // Indica que ha habido un cambio de fase
-      console.log("tiempo de trabajo finalizado");
+      pomodoro.setNextPhase("break time");
     } else {
+      // Fin del descanso
       if (pomodoro.cycle < maxCycles) {
+        // Descanso corto terminado, siguiente ciclo
         breakEndSound?.play();
         pomodoro.setStatus(POMODORO_STATUS.TRABAJO);
         pomodoro.setIsFocusTime(true);
         pomodoro.setCycle(pomodoro.cycle + 1);
-        pomodoro.setNextPhase("focus time"); // Indica que ha habido un cambio de fase
-        nextSeconds.current = focusTime * 60;
-        console.log("tiempo de descanso finalizado");
+        pomodoro.setNextPhase("focus time");
+        nextSeconds = focusTime * 60;
       } else {
+        // Todos los ciclos completados
         finishSound?.play();
-        pomodoro.setStatus(POMODORO_STATUS.DESCANSO_LARGO);
+        pomodoro.setStatus(POMODORO_STATUS.COMPLETADO);
         pomodoro.setCycle(1);
         pomodoro.setIsFocusTime(true);
-        pomodoro.setNextPhase("inicio de un nuevo proceso"); 
-        // nextSeconds = 0;
-        nextSeconds.current = focusTime * 60
-        console.log("tiempo de descanso largo finalizado");
+        pomodoro.setNextPhase("completado");
+        nextSeconds = focusTime * 60;
+        shouldContinue = false; // No continuar automáticamente
+
+        // Resetear pero no iniciar
+        resetTimer(nextSeconds);
       }
     }
 
-    console.log("FUERA del condicional de advancePhase, isFocusTime:", pomodoro.isFocusTime);
+    // Solo iniciar el siguiente período si no hemos completado todos los ciclos
+    if (shouldContinue) {
+      startTimer(nextSeconds);
+    }
+  }, [pomodoro.config, pomodoro.isFocusTime, pomodoro.cycle]);
 
-    // if(nextSeconds == 0) {
-    //   console.log("Pomodoro finalizado");
-    //   pause();
-    // }
-
-  };
-
-  const {
-    seconds,
-    minutes,
-    isRunning,
-    pause,
-    resume,
-    restart,
-  } = useTimer({
-    expiryTimestamp: getInitialExpiry(),
-    autoStart: false,
-    onExpire: advancePhase,
-  });
-
-
-   //Sincroniza pomodoro.timeLeft con el timer
-  // useEffect(() => {
-  //   const fecha1 = new Date('2025-07-17T14:00:00');
-  //   const fecha2 = new Date('2025-07-17T14:45:30');
-
-  //   const diferenciaMs = fecha2 - fecha1; // resultado: milisegundos
-  //   console.log("Diferencia en milisegundos:", diferenciaMs);
-  // }, [
-  //    seconds, 
-  //   ]);
-
-  // Cuando se pase de fase, reinicia el timer
   useEffect(() => {
-    if (pomodoro.config && pomodoro.nextPhase) {
-      if(pomodoro.nextPhase === "inicio de un nuevo proceso"){
+    advancePhaseRef.current = advancePhase;
+  }, [advancePhase]);
 
-        if(nextSeconds.current === null) return;
-        const expiry = new Date();
-        expiry.setSeconds(expiry.getSeconds() + nextSeconds.current);
-        restart(expiry, false);
-      } else {
+  // Inicializar el web worker
+  useEffect(() => {
+    // Crear el worker
+    workerRef.current = new Worker(
+      new URL("../workers/timerWorker.js", import.meta.url)
+    );
 
-        if(nextSeconds.current === null) return;
-        const expiry = new Date();
-        expiry.setSeconds(expiry.getSeconds() + nextSeconds.current);
-        // expiryRef.current = expiry;
-        restart(expiry, true);
+    // Configurar los listeners
+    workerRef.current.onmessage = (e) => {
+      const { type, payload } = e.data;
+
+      switch (type) {
+        case "TICK":
+          // payload.timeLeft en segundos (entero)
+          pomodoro.setTimeLeft(payload.timeLeft);
+          break;
+        case "EXPIRED":
+          // Llamar a la función a través de la referencia
+          if (advancePhaseRef.current) {
+            advancePhaseRef.current();
+          }
+          break;
       }
-    }
-  }, [
-    pomodoro.nextPhase,
-   ]);
+    };
 
-
+    // Limpiar el worker
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
 
   // Reinicia el Pomodoro al cambiar el uso de IA
   useEffect(() => {
     stopPomodoro();
     pomodoro.setTextCapturated("");
     pomodoro.setExplanation("");
-    
+
     // Reiniciar estado del Pomodoro
     pomodoro.setConfig(null);
     pomodoro.setCycle(1);
     pomodoro.setIsFocusTime(true);
     pomodoro.setNextPhase("");
 
-    if(pomodoro.isIAUsed && !pomodoro.model){
+    if (pomodoro.isIAUsed && !pomodoro.model) {
+      //Carga el modelo IA
       pomodoro.setStatus(POMODORO_STATUS.CARGANDO_IA);
       const initializeModel = async () => {
-      const loadedModel = await loadModel(pomodoro.setProgress, pomodoro.setProgressEnd);
-      pomodoro.setStatus(POMODORO_STATUS.INICIAL);
-      pomodoro.setModel(loadedModel);
+        const loadedModel = await loadModel(
+          pomodoro.setProgress,
+          pomodoro.setProgressEnd
+        );
+        pomodoro.setStatus(POMODORO_STATUS.INICIAL);
+        pomodoro.setModel(loadedModel);
       };
       initializeModel();
     } else {
       pomodoro.setStatus(POMODORO_STATUS.INICIAL);
     }
-  },[pomodoro.isIAUsed]);
+  }, [pomodoro.isIAUsed]);
 
   const handleVoiceCommand = async () => {
     try {
@@ -166,7 +194,6 @@ export default function VoicePomodoro() {
       pomodoro.setCycle(1);
       pomodoro.setIsFocusTime(true);
       pomodoro.setNextPhase("");
-      pause();
 
       pomodoro.setStatus(POMODORO_STATUS.ESCUCHANDO);
       const voiceText = await voiceCapture();
@@ -178,95 +205,112 @@ export default function VoicePomodoro() {
         pomodoro.setStatus(POMODORO_STATUS.MODELO_NO_LISTO);
         return;
       }
-      const webLLMResponse = await processTextWithWebLLM(voiceText, pomodoro.model);
-      const { 
+      const webLLMResponse = await processTextWithWebLLM(
+        voiceText,
+        pomodoro.model
+      );
+      const {
         // explanation: explanationResponse,
-         config: configResponse } = webLLMResponse;
+        config: configResponse,
+      } = webLLMResponse;
 
       pomodoro.setStatus(POMODORO_STATUS.CONFIGURANDO);
 
       // pomodoro.setExplanation(explanationResponse);
       const pomodoroConfig = configurePomodoro(configResponse);
-
       pomodoro.setConfig(pomodoroConfig);
-      nextSeconds.current = pomodoroConfig.focusTime * 60
-      const expiry = new Date();
-      expiry.setSeconds(expiry.getSeconds() + nextSeconds.current);
-      restart(expiry, false);
+
+      // Configurar el timer inicial con el tiempo de trabajo
+      const initialDuration = pomodoroConfig.focusTime * 60;
+      resetTimer(initialDuration);
 
       pomodoro.setStatus(POMODORO_STATUS.CONFIGURADO);
     } catch (error) {
       pomodoro.setStatus(
-        error instanceof Error ? POMODORO_STATUS.ERROR(error.message) : POMODORO_STATUS.ERROR_DESCONOCIDO
+        error instanceof Error
+          ? POMODORO_STATUS.ERROR(error.message)
+          : POMODORO_STATUS.ERROR_DESCONOCIDO
       );
     }
   };
 
   const startPomodoro = () => {
+    if (!pomodoro.config) return;
 
-    resume()
-    // const expiry = new Date();
-    // if(nextSeconds.current !== null) return
-    // expiry.setSeconds(expiry.getSeconds() + nextSeconds.current);
-    // expiryRef.current = expiry;
-    pomodoro.setStatus(POMODORO_STATUS.INICIADO);
+    if (pomodoro.timeLeft > 0 && !pomodoro.isRunning) {
+      resumeTimer();
+      pomodoro.setStatus(POMODORO_STATUS.REANUDADO);
+    } else if (pomodoro.timeLeft === 0) {
+      // Si no hay tiempo, calculamos la duración apropiada e iniciamos desde cero
+      const duration = pomodoro.isFocusTime
+        ? pomodoro.config.focusTime * 60
+        : pomodoro.cycle === pomodoro.config.maxCycles
+        ? pomodoro.config.longBreakTime * 60
+        : pomodoro.config.breakTime * 60;
+
+      startTimer(duration);
+      pomodoro.setStatus(POMODORO_STATUS.INICIADO);
+    }
   };
 
   const stopPomodoro = () => {
-    pause();
+    pauseTimer();
     pomodoro.setStatus(POMODORO_STATUS.DETENIDO);
   };
 
   const resetPomodoro = () => {
+    if (!pomodoro.config) return;
+
     pomodoro.setStatus(POMODORO_STATUS.INICIAL);
     pomodoro.setCycle(1);
     pomodoro.setIsFocusTime(true);
     pomodoro.setNextPhase("");
-    
-    // Reiniciar el timer
-    if(!pomodoro.config) return;
-    // const seconds = pomodoro.config.focusTime * 60;
-    nextSeconds.current = pomodoro.config.focusTime * 60;
-    const expiry = new Date();
-    expiry.setSeconds(expiry.getSeconds() + nextSeconds.current);
-    restart(expiry, false);
-  }
+
+    // Reiniciar el timer al tiempo de trabajo inicial
+    const initialDuration = pomodoro.config.focusTime * 60;
+    resetTimer(initialDuration);
+  };
 
   const setManualConfig = () => {
     // Cambiar estado del Pomodoro
     pomodoro.setCycle(1);
     pomodoro.setIsFocusTime(true);
     pomodoro.setNextPhase("");
-    console.log("setManualConfig, isFocusTime:", pomodoro.isFocusTime);
+
     const manualConfig = {
       focusTime: pomodoro.manualFocusTime,
       breakTime: pomodoro.manualBreakTime,
       maxCycles: pomodoro.manualMaxCycles,
       longBreakTime: pomodoro.manualLongBreakTime,
     };
-    pomodoro.setConfig(manualConfig);
-    console.log("setManualConfig, Configuración:", pomodoro.config);
-    // pomodoro.setTimeLeft(manualConfig.focusTime * 60);
-    pomodoro.setStatus(POMODORO_STATUS.MANUAL_APLICADA);
-    
-    if (!manualConfig) return;
 
-    // const fullSeconds = manualConfig.focusTime * 60
-    nextSeconds.current = manualConfig.focusTime * 60;
-    const expiry = new Date();
-    expiry.setSeconds(expiry.getSeconds() + nextSeconds.current);
-    restart(expiry, false);
+    pomodoro.setConfig(manualConfig);
+    pomodoro.setStatus(POMODORO_STATUS.MANUAL_APLICADA);
+
+    // Configurar el timer inicial con el tiempo de trabajo
+    const initialDuration = manualConfig.focusTime * 60;
+    resetTimer(initialDuration);
   };
-  
+
+  // Helpers para formatear el tiempo
+  const getMinutes = () => Math.floor(pomodoro.timeLeft / 60);
+  const getSeconds = () => pomodoro.timeLeft % 60;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 via-cyan-200 to-blue-100">
-      <div className={`pomodoro-timer w-full ${
-    pomodoro.config
-      ? "max-w-5xl flex-col md:flex-row gap-8"
-      : "max-w-md flex-col"
-  } bg-white/80 rounded-2xl shadow-2xl p-8 border border-blue-200 flex`}>
-        <div className={`flex flex-col ${pomodoro.config ? "md:w-1/3" : "w-full"}`}>
-          <h1 className="text-3xl font-bold text-sky-500 text-center mb-6 drop-shadow">Configura tu Pomodoro {!pomodoro.isIAUsed? "":"con tu voz"}</h1>
+      <div
+        className={`pomodoro-timer w-full ${
+          pomodoro.config
+            ? "max-w-5xl flex-col md:flex-row gap-8"
+            : "max-w-md flex-col"
+        } bg-white/80 rounded-2xl shadow-2xl p-8 border border-blue-200 flex`}
+      >
+        <div
+          className={`flex flex-col ${pomodoro.config ? "md:w-1/3" : "w-full"}`}
+        >
+          <h1 className="text-3xl font-bold text-sky-500 text-center mb-6 drop-shadow">
+            Configura tu Pomodoro {!pomodoro.isIAUsed ? "" : "con tu voz"}
+          </h1>
 
           {!pomodoro.isIAUsed && (
             <ManualConfig
@@ -282,7 +326,7 @@ export default function VoicePomodoro() {
               setisIAUsed={pomodoro.setisIAUsed}
             />
           )}
-          
+
           {pomodoro.isIAUsed && pomodoro.progressEnd && (
             <IAConfig
               handleVoiceCommand={handleVoiceCommand}
@@ -306,11 +350,9 @@ export default function VoicePomodoro() {
             <div className="w-full md:w-[420px] lg:w-[500px]">
               <PomodoroPanel
                 config={pomodoro.config}
-                minutes={minutes}
-                seconds={seconds}
-                // timeLeft={pomodoro.timeLeft}
-                // isRunning={pomodoro.isRunning}
-                isRunning={isRunning}
+                minutes={getMinutes()}
+                seconds={getSeconds()}
+                isRunning={pomodoro.isRunning}
                 isFocusTime={pomodoro.isFocusTime}
                 startPomodoro={startPomodoro}
                 stopPomodoro={stopPomodoro}
@@ -324,5 +366,3 @@ export default function VoicePomodoro() {
     </div>
   );
 }
-
-  

@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { MLCEngine } from "@mlc-ai/web-llm";
 
-
-export function usePomodoro() {
+export function usePomodoroState() {
   const [status, setStatus] = useState<string>("");
   const [progress, setProgress] = useState<string>("");
   const [progressEnd, setProgressEnd] = useState<boolean>(false);
-  const [config, setConfig] = useState<{ 
+  const [config, setConfig] = useState<{
     focusTime: number;
-    breakTime: number; 
-    maxCycles: number; 
-    longBreakTime: number; 
+    breakTime: number;
+    maxCycles: number;
+    longBreakTime: number;
   } | null>(null);
   const [model, setModel] = useState<MLCEngine | null>(null);
   const [textCapturated, setTextCapturated] = useState<string>("");
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isFocusTime, setIsFocusTime] = useState<boolean>(true);
   const [nextPhase, setNextPhase] = useState<string>(""); // Indica si ha habido un cambio de fase
   const [manualFocusTime, setManualFocusTime] = useState<number>(25);
@@ -23,25 +24,41 @@ export function usePomodoro() {
   const [cycle, setCycle] = useState<number>(1); // Ciclo actual
   const [isIAUsed, setisIAUsed] = useState<boolean>(false);
   const [explanation, setExplanation] = useState<string>("");
-  
-  
-
 
   return {
-    status, setStatus,
-    progress, setProgress,
-    progressEnd, setProgressEnd,
-    config, setConfig,
-    model, setModel,
-    textCapturated, setTextCapturated,
-    isFocusTime, setIsFocusTime,
-    nextPhase, setNextPhase,
-    manualFocusTime, setManualFocusTime,
-    manualBreakTime, setManualBreakTime,
-    manualMaxCycles, setManualMaxCycles,
-    manualLongBreakTime, setManualLongBreakTime,
-    cycle, setCycle,
-    isIAUsed, setisIAUsed,
-    explanation, setExplanation,
+    status,
+    setStatus,
+    progress,
+    setProgress,
+    progressEnd,
+    setProgressEnd,
+    config,
+    setConfig,
+    model,
+    setModel,
+    textCapturated,
+    setTextCapturated,
+    timeLeft,
+    setTimeLeft,
+    isRunning,
+    setIsRunning,
+    isFocusTime,
+    setIsFocusTime,
+    nextPhase,
+    setNextPhase,
+    manualFocusTime,
+    setManualFocusTime,
+    manualBreakTime,
+    setManualBreakTime,
+    manualMaxCycles,
+    setManualMaxCycles,
+    manualLongBreakTime,
+    setManualLongBreakTime,
+    cycle,
+    setCycle,
+    isIAUsed,
+    setisIAUsed,
+    explanation,
+    setExplanation,
   };
 }
